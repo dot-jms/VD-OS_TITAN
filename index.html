@@ -150,7 +150,8 @@
         const LEAD_IN_PIXELS = 100000;
         const NORMAL_RPM = 2400; 
         const MAGIC_SIG = "VDOS42"; 
-        const READ_SPEED_MULTIPLIER = 250; 
+        // Increased multiplier so rpm meaningfully affects throughput
+        const READ_SPEED_MULTIPLIER = 1000; // was 250
         const BLOCK_PAYLOAD_SIZE = 512;
         const BLOCK_HEADER_SIZE = 2; 
         const TOTAL_BLOCK_SIZE = BLOCK_HEADER_SIZE + BLOCK_PAYLOAD_SIZE;
@@ -162,6 +163,11 @@
             rawReadBuffer: null, rawWritePtr: 0, badBlocks: [], busy: false,
             exactSize: 0, eccByteLength: 0, discName: "UNLABELED_MASTER", waveData: []
         };
+
+        // Read scheduler state (prevents main-thread starvation when files are huge)
+        let readAccumulator = 0;
+        // Raised ceiling so frames allow more reads when the system is able
+        const MAX_READS_PER_FRAME = 12000; // previously 800
 
         const canvas = document.getElementById('discCanvas');
         sys.ctx = canvas.getContext('2d', { willReadFrequently: true, alpha: true });
@@ -213,13 +219,34 @@
             document.getElementById('rpmDisplay').innerText = Math.floor(sys.rpm).toString().padStart(4, '0');
             document.getElementById('statusDisplay').innerText = sys.state;
 
+            // --- time-sliced read scheduler (rpm now has stronger impact) ---
             if (sys.totalPixels > 0 && sys.rpm > 10 && sys.state === "PLAYING") {
-                const readPressure = Math.max(1, Math.floor((sys.rpm / 60) * READ_SPEED_MULTIPLIER));
-                for(let i=0; i<readPressure; i++) {
-                    if(sys.state !== "PLAYING") break;
+                // Accumulate read "energy" proportional to rpm and dt.
+                // We also scale by (sys.rpm / NORMAL_RPM) to make RPM earn throughput.
+                // A small floor prevents near-zero stalls at very low rpms.
+                const rpmScale = Math.max(0.25, sys.rpm / NORMAL_RPM);
+                readAccumulator += (sys.rpm / 60) * READ_SPEED_MULTIPLIER * dt * rpmScale;
+
+                // Cap how many reads we perform this single frame to protect rendering,
+                // but allow a much larger ceiling so high RPMs actually translate into speed.
+                const readsAllowed = Math.min(
+                    Math.floor(readAccumulator),
+                    MAX_READS_PER_FRAME,
+                    Math.max(0, sys.totalPixels - sys.trackCursor)
+                );
+
+                for (let i = 0; i < readsAllowed; i++) {
+                    if (sys.state !== "PLAYING") break;
                     readStep();
                 }
+
+                // Remove consumed reads from accumulator
+                readAccumulator -= readsAllowed;
+
+                // Prevent runaway accumulator if we hit end
+                if (sys.trackCursor >= sys.totalPixels) readAccumulator = 0;
             }
+
             drawWaveform();
             requestAnimationFrame(physicsLoop);
         }
