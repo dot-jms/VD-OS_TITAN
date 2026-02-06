@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>VD-OS | TITAN </title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&family=JetBrains+Mono&display=swap');
+        :root { --neon: #ff0055; --cyan: #00f2ff; --gold: #ebc034; --alert: #ff3333; --bg: #050505; --panel: #111; }
+        * { box-sizing: border-box; }
+        
+        body { 
+            background: var(--bg); color: #fff; font-family: 'Orbitron', sans-serif; 
+            padding: 5px 15px; height: 100vh; margin: 0; overflow: hidden; 
+            display: flex; flex-direction: column; align-items: center; 
+        }
+        
+        h1 { margin: 5px 0 10px 0; font-size: 1.2rem; text-shadow: 0 0 20px rgba(255,255,255,0.2); flex-shrink: 0; }
+
+        .dashboard { 
+            display: grid; grid-template-columns: 420px 1fr; gap: 10px; 
+            width: 100%; max-width: 1400px; height: 100%; padding-bottom: 10px; min-height: 0;
+        }
+        
+        .unit { 
+            background: var(--panel); border: 1px solid #333; padding: 10px; 
+            display: flex; flex-direction: column; position: relative; 
+            overflow: hidden; box-shadow: 0 0 30px rgba(0,0,0,0.5); min-height: 0;
+        }
+        .unit::before { content: ''; position: absolute; top:0; left:0; width:100%; height:4px; background: var(--gold); opacity: 0.5; }
+        
+        h2 { font-size: 0.75rem; color: var(--gold); border-bottom: 1px solid #333; padding-bottom: 5px; margin-top: 0; margin-bottom: 10px; letter-spacing: 3px; flex-shrink: 0; }
+        
+        .deck-container { 
+            flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            background: #080808; border: 1px solid #222; margin-bottom: 8px; 
+            position: relative; overflow: hidden; min-height: 0;
+        }
+
+        .turntable { 
+            width: 300px; height: 300px; 
+            border-radius: 50%; border: 2px solid #333; 
+            position: relative; box-shadow: 0 0 60px rgba(0,0,0,0.8); 
+            will-change: transform; display: flex; align-items: center; justify-content: center; 
+            flex-shrink: 0; margin-bottom: 20px;
+            image-rendering: pixelated; 
+        }
+        .platter { 
+            width: 100%; height: 100%; object-fit: contain; 
+            image-rendering: pixelated; position: absolute; top:0; left:0; 
+            border-radius: 50%; opacity: 0.9; mix-blend-mode: screen;
+        }
+        
+        .center-label { width: 100px; height: 100px; background: #111; border-radius: 50%; border: 4px solid #333; position: relative; z-index: 5; display: flex; align-items: center; justify-content: center; text-align: center; padding: 10px; box-shadow: inset 0 0 20px #000; }
+        .label-text { font-size: 0.6rem; color: var(--gold); word-break: break-word; font-weight: 900; }
+
+        .progress-rail {
+            width: 80%; height: 6px; background: #111; border: 1px solid #333;
+            position: relative; overflow: hidden; margin-top: 10px;
+        }
+        .progress-fill {
+            height: 100%; width: 0%; background: var(--cyan);
+            transition: width 0.1s linear, background 0.3s;
+            box-shadow: 0 0 10px var(--cyan);
+        }
+        
+        .wave-container { height: 60px; background: #080808; border: 1px solid #222; margin-bottom: 8px; position: relative; overflow: hidden; flex-shrink: 0; }
+        .hud-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-bottom: 0; flex-shrink: 0; }
+        .hud-box { background: #0a0a0a; border: 1px solid #222; padding: 4px; text-align: center; min-width: 0; }
+        .hud-val { display: block; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--gold); overflow: hidden; }
+        .hud-lbl { font-size: 0.4rem; color: #555; text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; display: block; }
+
+        .terminal { 
+            background: #000; flex-grow: 1; border: 1px solid #333; 
+            font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; 
+            padding: 10px; color: #666; overflow-y: auto; 
+            white-space: pre-wrap; margin-top: 8px; margin-bottom: 8px;
+            box-shadow: inset 0 0 20px #000; 
+        }
+        .log-entry { margin-bottom: 2px; border-left: 2px solid transparent; padding-left: 8px; line-height: 1.2; }
+        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; flex-shrink: 0; }
+        .btn { background: #000; color: #555; border: 1px solid #333; padding: 12px; cursor: pointer; font-family: 'Orbitron'; font-weight: 900; letter-spacing: 1px; transition: 0.2s; text-transform: uppercase; font-size: 0.65rem; }
+        .btn.active:not(:disabled) { border-color: var(--gold); color: var(--gold); box-shadow: 0 0 10px rgba(235, 192, 52, 0.2); }
+        .btn:disabled { opacity: 0.2; cursor: not-allowed; }
+        .btn.burn:not(:disabled) { border-color: var(--alert); color: var(--alert); box-shadow: 0 0 10px rgba(255, 51, 51, 0.2); }
+        .label-input { background: #0a0a0a; border: 1px solid #333; color: var(--gold); padding: 10px; font-family: 'Orbitron'; text-align: center; margin-bottom: 8px; text-transform: uppercase; flex-shrink: 0; font-size: 0.8rem; width: 100%; border-radius: 0; }
+        .label-input:focus { outline: none; border-color: var(--gold); background: #111; }
+        input[type="file"] { display: none; }
+        .file-drop { border: 2px dashed #333; padding: 15px; text-align: center; color: #444; cursor: pointer; transition: 0.2s; font-size: 0.6rem; flex-shrink: 0; letter-spacing: 2px; }
+        .file-drop.drag-over { border-color: var(--gold); color: var(--gold); background: rgba(235, 192, 52, 0.05); }
+    </style>
+</head>
+<body>
+
+    <h1>VD-OS <span style="color:var(--gold)">TITAN</span></h1>
+
+    <div class="dashboard">
+        <div class="unit" style="border-top: 4px solid var(--cyan)">
+            <h2 style="color:var(--cyan)">// VIRTUAL DISC</h2>
+            <div class="deck-container">
+                <div class="turntable" id="turntable">
+                    <canvas id="discCanvas" class="platter" width="8192" height="8192"></canvas>
+                    <div class="center-label">
+                        <span class="label-text" id="onDiscLabel">READY</span>
+                    </div>
+                </div>
+                <div class="progress-rail">
+                    <div class="progress-fill" id="progressBar"></div>
+                </div>
+            </div>
+            
+            <div class="wave-container">
+                <canvas id="waveCanvas" class="wave-canvas" width="450" height="60"></canvas>
+            </div>
+
+            <div class="hud-grid">
+                <div class="hud-box"><span class="hud-val" id="rpmDisplay">0000</span><span class="hud-lbl">RPM</span></div>
+                <div class="hud-box"><span class="hud-val" id="sectorDisplay">0</span><span class="hud-lbl">TRACK</span></div>
+                <div class="hud-box"><span class="hud-val" id="dataDisplay">0.00 B</span><span class="hud-lbl">BUFFER</span></div>
+                <div class="hud-box"><span class="hud-val" id="statusDisplay">IDLE</span><span class="hud-lbl">STATUS</span></div>
+            </div>
+        </div>
+
+        <div class="unit">
+            <h2>// TERMINAL</h2>
+            <input type="text" id="labelInput" class="label-input" placeholder="DISC LABEL" maxlength="20" onkeyup="updateLabel(this.value)">
+            <label class="file-drop" id="dropZone">
+                DROP SOURCE MATERIAL HERE
+                <input type="file" id="fileInput" multiple onchange="handleInput(this.files)">
+            </label>
+            <div class="terminal" id="console">
+                <div style="color:var(--gold)">> VD-OS KERNEL REBUILT.</div>
+                <div>> OPTIMIZATION: BUFFER POOLING [ACTIVE]</div>
+                <div>> OPTIMIZATION: CONSENSUS ECC [ACTIVE]</div>
+                <div>> STANDBY...</div>
+            </div>
+            <div class="controls">
+                <button class="btn burn" id="burnBtn" onclick="compileVd()" disabled>BURN TO VD</button>
+                <button class="btn active" id="playBtn" onclick="togglePlayback()" disabled>ENGAGE MOTOR</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- TITAN CONFIGURATION (REMASTERED) ---
+        const CANVAS_SIZE = 8192; 
+        const CENTER = CANVAS_SIZE / 2;
+        const INNER_LIMIT = 950;       
+        const MAX_RADIUS = 4000; 
+        const MIN_SAFE_SPACING = 2.0; 
+        const LEAD_IN_PIXELS = 100000;
+        const NORMAL_RPM = 2400; 
+        const MAGIC_SIG = "VDOS42"; 
+        const READ_SPEED_MULTIPLIER = 250; 
+        const BLOCK_PAYLOAD_SIZE = 512;
+        const BLOCK_HEADER_SIZE = 2; 
+        const TOTAL_BLOCK_SIZE = BLOCK_HEADER_SIZE + BLOCK_PAYLOAD_SIZE;
+
+        let sys = {
+            state: "IDLE", files: [], ctx: null, waveCtx: null,
+            rpm: 0, targetRpm: 0, rotationAngle: 0, lastFrameTime: 0,
+            trackCursor: 0, totalPixels: 0, discData: null, activeSpacing: 3.0,
+            rawReadBuffer: null, rawWritePtr: 0, badBlocks: [], busy: false,
+            exactSize: 0, eccByteLength: 0, discName: "UNLABELED_MASTER", waveData: []
+        };
+
+        const canvas = document.getElementById('discCanvas');
+        sys.ctx = canvas.getContext('2d', { willReadFrequently: true, alpha: true });
+        
+        function resetCanvasToCircle() { sys.ctx.clearRect(0,0,CANVAS_SIZE,CANVAS_SIZE); }
+        resetCanvasToCircle();
+
+        const waveCanvas = document.getElementById('waveCanvas');
+        sys.waveCtx = waveCanvas.getContext('2d');
+        sys.waveData = new Array(waveCanvas.width).fill(waveCanvas.height / 2);
+
+        function updateLabel(val) {
+            sys.discName = val.toUpperCase().replace(/[^A-Z0-9_]/g, '_') || "UNLABELED_MASTER";
+            document.getElementById('onDiscLabel').innerText = sys.discName;
+        }
+
+        const dropZone = document.getElementById('dropZone');
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evt => {
+            dropZone.addEventListener(evt, e => { e.preventDefault(); e.stopPropagation(); });
+        });
+        dropZone.addEventListener('dragover', () => dropZone.classList.add('drag-over'));
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+        dropZone.addEventListener('drop', (e) => {
+            dropZone.classList.remove('drag-over');
+            handleInput(e.dataTransfer.files);
+        });
+
+        function physicsLoop(timestamp) {
+            if (!sys.lastFrameTime) sys.lastFrameTime = timestamp;
+            const dt = (timestamp - sys.lastFrameTime) / 1000;
+            sys.lastFrameTime = timestamp;
+
+            sys.targetRpm = (sys.state === "PLAYING") ? NORMAL_RPM : 0;
+            
+            // Fixed: Linear ramp up over ~6.2 seconds
+            if(sys.state === "PLAYING" && sys.rpm < sys.targetRpm) {
+                // NORMAL_RPM / 6.2 seconds = acceleration per second
+                sys.rpm += (NORMAL_RPM / 6.2) * dt;
+                if(sys.rpm > sys.targetRpm) sys.rpm = sys.targetRpm;
+            } else {
+                // Friction stop (Standard smooth stop)
+                sys.rpm += (sys.targetRpm - sys.rpm) * 0.05;
+            }
+
+            sys.rotationAngle += ((sys.rpm * Math.PI * 2) / 60) * dt;
+
+            const visualDeg = (sys.rotationAngle * 180) / Math.PI;
+            document.getElementById('turntable').style.transform = `rotate(${visualDeg}deg)`;
+            document.getElementById('rpmDisplay').innerText = Math.floor(sys.rpm).toString().padStart(4, '0');
+            document.getElementById('statusDisplay').innerText = sys.state;
+
+            if (sys.totalPixels > 0 && sys.rpm > 10 && sys.state === "PLAYING") {
+                const readPressure = Math.max(1, Math.floor((sys.rpm / 60) * READ_SPEED_MULTIPLIER));
+                for(let i=0; i<readPressure; i++) {
+                    if(sys.state !== "PLAYING") break;
+                    readStep();
+                }
+            }
+            drawWaveform();
+            requestAnimationFrame(physicsLoop);
+        }
+        requestAnimationFrame(physicsLoop);
+
+        function drawWaveform() {
+            const w = waveCanvas.width; const h = waveCanvas.height;
+            const ctx = sys.waveCtx;
+            ctx.fillStyle = "#080808"; ctx.fillRect(0, 0, w, h);
+            ctx.strokeStyle = "#222"; ctx.beginPath(); ctx.moveTo(0, h/2); ctx.lineTo(w, h/2); ctx.stroke();
+            ctx.strokeStyle = "var(--neon)"; ctx.lineWidth = 2; ctx.beginPath();
+            for(let i=0; i<w; i++) {
+                const y = (sys.waveData[i] / 255) * h;
+                if(i===0) ctx.moveTo(i, h - y); else ctx.lineTo(i, h - y);
+            }
+            ctx.stroke();
+        }
+
+        const GOLDEN_ANGLE = 2.39996;
+        function getSpiralXY(index, spacing) {
+            const r = INNER_LIMIT + (spacing * Math.sqrt(index));
+            const theta = index * GOLDEN_ANGLE;
+            return { x: CENTER + r * Math.cos(theta), y: CENTER + r * Math.sin(theta) };
+        }
+
+        function calcChecksum(u8array) {
+            let sum = 0;
+            for(let i=0; i<u8array.length; i++) sum = (sum + u8array[i]) & 0xFFFF;
+            return sum;
+        }
+
+        function log(msg, color="#888", tech = false) {
+            const c = document.getElementById('console');
+            const d = document.createElement('div');
+            d.className = tech ? 'log-entry log-tech' : 'log-entry';
+            d.innerHTML = `> ${msg}`;
+            d.style.color = color;
+            c.appendChild(d);
+            c.scrollTop = c.scrollHeight;
+            if (c.childNodes.length > 100) c.removeChild(c.firstChild);
+        }
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024; const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function handleInput(filesList) {
+            const files = Array.from(filesList);
+            if(!files.length) return;
+            sys.files = files;
+            const f = files[0];
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const arr = new Uint8Array(e.target.result).slice(0,6);
+                const sig = new TextDecoder().decode(arr);
+                if (f.name.endsWith('.vd') || sig === MAGIC_SIG) {
+                    log(`MOUNTING VD CARTRIDGE: ${f.name}`, "var(--gold)");
+                    updateLabel(f.name.replace('.vd', ''));
+                    const fr = new FileReader();
+                    fr.onload = (e) => loadVd(new Uint8Array(e.target.result));
+                    fr.readAsArrayBuffer(f);
+                } else {
+                    log(`${files.length} FILES QUEUED.`, "var(--gold)");
+                    files.forEach(file => log(`STAGED: ${file.name} (${formatBytes(file.size)})`, "#555", true));
+                    document.getElementById('burnBtn').disabled = false;
+                }
+            };
+            reader.readAsArrayBuffer(f.slice(0,6));
+        }
+
+        // --- OPTIMIZED COMPILER (Zero-Copy Logic) ---
+        async function compileVd() {
+            sys.state = "COMPILING"; sys.busy = true;
+            document.getElementById('burnBtn').disabled = true;
+            log(`INITIATING BSP COMPILER (OPTIMIZED)...`, "var(--gold)");
+            
+            // 1. Create Tarball
+            const tarBuffer = await createTarBuffer(sys.files);
+            
+            // 2. Compress (GZIP)
+            const cs = new CompressionStream("gzip");
+            const writer = cs.writable.getWriter();
+            writer.write(tarBuffer);
+            writer.close();
+            const compressedBSP = new Uint8Array(await new Response(cs.readable).arrayBuffer());
+            log(`COMPRESSED SIZE: ${formatBytes(compressedBSP.length)}`, "#555", true);
+
+            // 3. Pre-calculate Layout (Avoids the 'blocks' array)
+            const numBlocks = Math.ceil(compressedBSP.length / BLOCK_PAYLOAD_SIZE);
+            const eccPayloadSize = numBlocks * TOTAL_BLOCK_SIZE;
+            const metaSize = 12;
+            const totalDataBytes = metaSize + eccPayloadSize;
+            
+            // 4. Density Calculation
+            const pixelCount = Math.ceil(totalDataBytes / 3) + 4;
+            const totalPoints = pixelCount + LEAD_IN_PIXELS;
+            let optimalSpacing = (MAX_RADIUS - INNER_LIMIT) / Math.sqrt(totalPoints);
+            if(optimalSpacing < MIN_SAFE_SPACING) log(`CRITICAL: HIGH DENSITY (${optimalSpacing.toFixed(3)}).`, "var(--alert)");
+            optimalSpacing = Math.min(3.5, optimalSpacing); 
+            log(`OPTIMAL DENSITY: ${optimalSpacing.toFixed(4)}`, "var(--cyan)", true);
+
+            // 5. Zero-Copy Assembly
+            const finalBuffer = new Uint8Array(totalDataBytes);
+            
+            // Header
+            finalBuffer.set(new TextEncoder().encode(MAGIC_SIG), 0);
+            new DataView(finalBuffer.buffer).setUint32(6, compressedBSP.length, true);
+            new DataView(finalBuffer.buffer).setUint16(10, Math.floor(optimalSpacing * 10000), true);
+
+            // Payload + ECC Injection
+            let srcPtr = 0;
+            let dstPtr = 12;
+            
+            for(let i=0; i<numBlocks; i++) {
+                const end = Math.min(srcPtr + BLOCK_PAYLOAD_SIZE, compressedBSP.length);
+                const chunk = compressedBSP.subarray(srcPtr, end);
+                
+                // Calculate CRC on the fly
+                let sum = 0;
+                for(let b of chunk) sum = (sum + b) & 0xFFFF;
+                if(chunk.length < BLOCK_PAYLOAD_SIZE) { /* Padding zeros implied for CRC? usually no, checksum valid bytes */ }
+
+                finalBuffer[dstPtr] = sum & 0xFF;
+                finalBuffer[dstPtr+1] = (sum >> 8) & 0xFF;
+                finalBuffer.set(chunk, dstPtr+2);
+                
+                // Fill remainder with 0 if last block
+                if(chunk.length < BLOCK_PAYLOAD_SIZE) {
+                    finalBuffer.fill(0, dstPtr+2+chunk.length, dstPtr + TOTAL_BLOCK_SIZE);
+                }
+
+                srcPtr += BLOCK_PAYLOAD_SIZE;
+                dstPtr += TOTAL_BLOCK_SIZE;
+            }
+
+            log(`BURNING ${pixelCount} SECTORS TO SUBSTRATE...`, "var(--alert)", true);
+            await new Promise(r => setTimeout(r, 10));
+
+            renderToCanvas(finalBuffer, pixelCount, optimalSpacing);
+            
+            const vdBlob = new Blob([finalBuffer], {type: "application/octet-stream"});
+            log(`COMPILATION COMPLETE: ${formatBytes(vdBlob.size)}`, "var(--cyan)");
+
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(vdBlob);
+            a.download = `${sys.discName}.vd`;
+            a.click();
+            log("CARTRIDGE EJECTED.", "var(--alert)");
+            
+            document.getElementById('burnBtn').disabled = false;
+            sys.state = "IDLE"; sys.busy = false;
+        }
+
+        // --- SMART JITTER RENDERER ---
+        function renderToCanvas(buffer, count, spacing) {
+            resetCanvasToCircle();
+            const imgData = sys.ctx.getImageData(0,0,CANVAS_SIZE, CANVAS_SIZE);
+            const p = imgData.data;
+            let bufPtr = 0;
+
+            // Diamond Search Pattern (Sorted by distance from center)
+            const offsets = [
+                [0,0], 
+                [1,0], [-1,0], [0,1], [0,-1], // dist 1
+                [1,1], [-1,-1], [1,-1], [-1,1], // dist 1.4
+                [2,0], [-2,0], [0,2], [0,-2]    // dist 2
+            ];
+
+            for(let i=0; i < (count + LEAD_IN_PIXELS); i++) {
+                const pt = getSpiralXY(i, spacing);
+                const baseX = Math.round(pt.x);
+                const baseY = Math.round(pt.y);
+                
+                let targetIdx = -1;
+                // Find closest empty pixel
+                for(let o of offsets) {
+                    const tx = baseX + o[0];
+                    const ty = baseY + o[1];
+                    if(tx<0||tx>=CANVAS_SIZE||ty<0||ty>=CANVAS_SIZE) continue;
+                    const idx = (ty * CANVAS_SIZE + tx) * 4;
+                    if(p[idx+3] === 0) { targetIdx = idx; break; }
+                }
+                
+                if(targetIdx === -1) targetIdx = (baseY * CANVAS_SIZE + baseX) * 4; // Collision Fallback
+
+                if(i < LEAD_IN_PIXELS) {
+                    // Lead-in pattern
+                    if(i % 10 === 0) { p[targetIdx]=40; p[targetIdx+1]=30; p[targetIdx+2]=0; p[targetIdx+3]=255; }
+                    else { p[targetIdx]=10; p[targetIdx+1]=10; p[targetIdx+2]=10; p[targetIdx+3]=255; }
+                } else {
+                    if(bufPtr < buffer.length) {
+                        p[targetIdx] = buffer[bufPtr++] || 0;
+                        p[targetIdx+1] = buffer[bufPtr++] || 0;
+                        p[targetIdx+2] = buffer[bufPtr++] || 0;
+                        p[targetIdx+3] = 255;
+                    }
+                }
+            }
+            sys.ctx.putImageData(imgData, 0, 0);
+        }
+
+        function loadVd(buffer) {
+            sys.trackCursor = 0; sys.rawWritePtr = 0; sys.rotationAngle = 0; 
+            sys.exactSize = 0; sys.eccByteLength = 0;
+            sys.badBlocks = []; sys.busy = false; sys.waveData.fill(128); sys.activeSpacing = 3.0;
+            
+            const dv = new DataView(buffer.buffer);
+            if(buffer.length > 12) {
+                const spacingInt = dv.getUint16(10, true);
+                sys.activeSpacing = (spacingInt > 0) ? (spacingInt / 10000) : 3.0;
+            }
+
+            sys.totalPixels = Math.ceil(buffer.length / 3) + 4 + LEAD_IN_PIXELS;
+            renderToCanvas(buffer, Math.ceil(buffer.length / 3) + 4, sys.activeSpacing);
+            sys.discData = sys.ctx.getImageData(0,0,CANVAS_SIZE,CANVAS_SIZE).data;
+            
+            document.getElementById('sectorDisplay').innerText = `0 / ${sys.totalPixels}`;
+            document.getElementById('progressBar').style.width = '0%';
+            log(`FS_SYNC: OK. DENSITY: ${sys.activeSpacing.toFixed(4)}`, "var(--gold)");
+            document.getElementById('playBtn').disabled = false;
+        }
+
+        function togglePlayback() {
+            if(sys.state === "IDLE") {
+                sys.state = "PLAYING";
+                document.getElementById('playBtn').innerText = "CUT POWER";
+                log("SERVO MOTOR ACTIVE. READING STREAM...", "var(--cyan)");
+            } else {
+                sys.state = "IDLE"; sys.busy = false;
+                document.getElementById('playBtn').innerText = "ENGAGE MOTOR";
+                log("MANUAL STOP.", "var(--alert)");
+            }
+        }
+
+        function readStep() {
+            if(sys.state !== "PLAYING") return;
+            let readingCursor = sys.trackCursor;
+            
+            if(readingCursor < LEAD_IN_PIXELS) {
+                sys.trackCursor += 200; 
+                if(sys.trackCursor >= LEAD_IN_PIXELS) sys.trackCursor = LEAD_IN_PIXELS;
+                return;
+            }
+            if(readingCursor >= sys.totalPixels) { verifyAndFinish(); return; }
+
+            const dataRef = sys.discData;
+            const pt = getSpiralXY(readingCursor, sys.activeSpacing);
+            const ix = Math.round(pt.x); const iy = Math.round(pt.y);
+            const idx = (iy * CANVAS_SIZE + ix) * 4;
+            
+            const r = dataRef[idx] || 0; const g = dataRef[idx+1] || 0; const b = dataRef[idx+2] || 0;
+            const dataCursor = readingCursor - LEAD_IN_PIXELS;
+
+            if (dataCursor < 4) {
+                // Header Parsing
+                if(sys.rawReadBuffer === null) sys.rawReadBuffer = new Uint8Array(12);
+                let bIdx = dataCursor * 3;
+                if(bIdx < 12) sys.rawReadBuffer[bIdx] = r;
+                if(bIdx+1 < 12) sys.rawReadBuffer[bIdx+1] = g;
+                if(bIdx+2 < 12) sys.rawReadBuffer[bIdx+2] = b;
+                sys.rawWritePtr = Math.max(sys.rawWritePtr, bIdx+3);
+
+                if(dataCursor === 3) {
+                    const sig = new TextDecoder().decode(sys.rawReadBuffer.slice(0,6));
+                    if(sig === MAGIC_SIG) {
+                        const sizeArr = sys.rawReadBuffer.slice(6,10);
+                        sys.exactSize = new DataView(sizeArr.buffer).getUint32(0, true);
+                        const densityInt = new DataView(sys.rawReadBuffer.slice(10,12).buffer).getUint16(0, true);
+                        sys.activeSpacing = (densityInt > 0) ? densityInt / 10000 : 3.0;
+
+                        const numBlocks = Math.ceil(sys.exactSize / BLOCK_PAYLOAD_SIZE);
+                        sys.eccByteLength = numBlocks * TOTAL_BLOCK_SIZE;
+
+                        log(`HEADER VALID. PAYLOAD: ${sys.exactSize} BYTES`, "#555", true);
+                        // Allocate full buffer now
+                        const newBuf = new Uint8Array(12 + sys.eccByteLength);
+                        newBuf.set(sys.rawReadBuffer); 
+                        sys.rawReadBuffer = newBuf;
+                    } else {
+                        log(`FATAL: HEADER CORRUPT.`, "var(--alert)"); 
+                        sys.state = "IDLE"; 
+                        document.getElementById('playBtn').innerText = "ENGAGE MOTOR"; // Fixed button state on error
+                        return;
+                    }
+                }
+            } else {
+                // Payload Reading
+                if(sys.rawReadBuffer) {
+                    const baseByte = dataCursor * 3;
+                    if(baseByte < sys.rawReadBuffer.length) {
+                        sys.rawReadBuffer[baseByte] = r;
+                        if(baseByte+1 < sys.rawReadBuffer.length) sys.rawReadBuffer[baseByte+1] = g;
+                        if(baseByte+2 < sys.rawReadBuffer.length) sys.rawReadBuffer[baseByte+2] = b;
+                        sys.rawWritePtr = baseByte + 3;
+                    }
+                }
+            }
+            
+            sys.waveData.push((r+g+b)/3); sys.waveData.shift();
+            document.getElementById('dataDisplay').innerText = formatBytes(sys.rawWritePtr);
+            sys.trackCursor++;
+            
+            if (sys.state === "PLAYING") {
+                const prog = ((sys.trackCursor) / sys.totalPixels) * 100;
+                document.getElementById('progressBar').style.width = `${prog}%`;
+                document.getElementById('sectorDisplay').innerText = `${sys.trackCursor} / ${sys.totalPixels}`;
+            }
+            if (sys.eccByteLength > 0 && sys.rawWritePtr >= (12 + sys.eccByteLength)) { verifyAndFinish(); }
+        }
+
+        // --- CONSENSUS ECC (VOTING SYSTEM) ---
+        function verifyAndFinish() {
+            if(sys.busy) return; 
+            sys.busy = true; sys.state = "IDLE"; 
+            log("PRIMARY SCAN COMPLETE. VERIFYING...", "var(--gold)");
+            
+            sys.badBlocks = [];
+            const eccPayload = sys.rawReadBuffer.slice(12, 12 + sys.eccByteLength);
+            const numBlocks = Math.floor(eccPayload.length / TOTAL_BLOCK_SIZE);
+            const dataRef = sys.discData; 
+            let repaired = 0;
+
+            // Voting Neighbors (Surrounding 8 pixels)
+            const neighbors = [[1,0], [-1,0], [0,1], [0,-1], [1,1], [-1,-1], [1,-1], [-1,1]];
+
+            for(let i=0; i<numBlocks; i++) {
+                const base = i * TOTAL_BLOCK_SIZE;
+                const crcL = eccPayload[base]; const crcH = eccPayload[base+1];
+                const recordedCRC = (crcH << 8) | crcL;
+                
+                let dataBlock = eccPayload.slice(base+2, base + TOTAL_BLOCK_SIZE);
+                let calcCRC = calcChecksum(dataBlock);
+                
+                if(recordedCRC !== calcCRC) {
+                    // --- CONSENSUS RECOVERY ---
+                    // 1. Read block from ALL neighbors
+                    const byteStart = 12 + base;
+                    const pixelStart = LEAD_IN_PIXELS + Math.floor(byteStart / 3);
+                    const pixelsNeeded = Math.ceil(TOTAL_BLOCK_SIZE / 3);
+                    
+                    // Create candidate blocks
+                    let candidates = [];
+                    for(let o of neighbors) {
+                        let temp = new Uint8Array(TOTAL_BLOCK_SIZE);
+                        for(let p=0; p<pixelsNeeded; p++) {
+                            const cursor = pixelStart + p;
+                            const pt = getSpiralXY(cursor, sys.activeSpacing);
+                            const ix = Math.round(pt.x) + o[0]; const iy = Math.round(pt.y) + o[1];
+                            const idx = (iy * CANVAS_SIZE + ix) * 4;
+                            const r = dataRef[idx]||0; const g = dataRef[idx+1]||0; const b = dataRef[idx+2]||0;
+                            const local = p * 3;
+                            if(local < TOTAL_BLOCK_SIZE) temp[local] = r;
+                            if(local+1 < TOTAL_BLOCK_SIZE) temp[local+1] = g;
+                            if(local+2 < TOTAL_BLOCK_SIZE) temp[local+2] = b;
+                        }
+                        candidates.push(temp);
+                    }
+
+                    // 2. Try whole-block replacement first (Fastest)
+                    let fixed = false;
+                    for(let cand of candidates) {
+                        const cCrc = calcChecksum(cand.slice(2));
+                        const cRec = (cand[1] << 8) | cand[0];
+                        if(cRec === cCrc) {
+                            eccPayload.set(cand, base);
+                            fixed = true; break;
+                        }
+                    }
+
+                    // 3. If that fails, VOTE Byte-by-Byte (Frankenstein Block)
+                    if(!fixed) {
+                        let frankenstein = new Uint8Array(TOTAL_BLOCK_SIZE);
+                        // Assume header is correct from original? No, use majority vote for header too.
+                        for(let b=0; b<TOTAL_BLOCK_SIZE; b++) {
+                            let votes = {};
+                            for(let cand of candidates) {
+                                let val = cand[b];
+                                votes[val] = (votes[val] || 0) + 1;
+                            }
+                            // Pick winner
+                            let winner = 0, maxV = 0;
+                            for(let val in votes) {
+                                if(votes[val] > maxV) { maxV = votes[val]; winner = parseInt(val); }
+                            }
+                            frankenstein[b] = winner;
+                        }
+                        
+                        const fCrc = calcChecksum(frankenstein.slice(2));
+                        const fRec = (frankenstein[1] << 8) | frankenstein[0];
+                        
+                        if(fRec === fCrc) {
+                            eccPayload.set(frankenstein, base);
+                            fixed = true;
+                            log(`SECTOR ${i}: REPAIRED VIA CONSENSUS`, "#555", true);
+                        }
+                    }
+
+                    if(fixed) repaired++;
+                    else sys.badBlocks.push(i);
+                }
+            }
+
+            if(repaired > 0) log(`FLASH RECOVERY: REPAIRED ${repaired} SECTORS.`, "var(--cyan)");
+            if(sys.badBlocks.length > 0) log(`ERROR: ${sys.badBlocks.length} SECTORS PERMANENTLY LOST.`, "var(--alert)");
+            finalizeDecoding();
+        }
+
+        async function finalizeDecoding() {
+            sys.state = "IDLE"; sys.targetRpm = 0; sys.waveData.fill(128);
+            document.getElementById('playBtn').innerText = "ENGAGE MOTOR"; // Fixed button state on finish
+            document.getElementById('progressBar').className = 'progress-fill';
+            
+            const eccPayload = sys.rawReadBuffer.slice(12, 12 + sys.eccByteLength);
+            const numBlocks = Math.floor(eccPayload.length / TOTAL_BLOCK_SIZE);
+            const cleanData = new Uint8Array(numBlocks * BLOCK_PAYLOAD_SIZE);
+            for(let i=0; i<numBlocks; i++) {
+                const srcBase = i * TOTAL_BLOCK_SIZE + 2; 
+                const dstBase = i * BLOCK_PAYLOAD_SIZE;
+                cleanData.set(eccPayload.slice(srcBase, srcBase + BLOCK_PAYLOAD_SIZE), dstBase);
+            }
+            try {
+                const finalData = cleanData.slice(0, sys.exactSize);
+                const ds = new DecompressionStream("gzip");
+                const writer = ds.writable.getWriter();
+                writer.write(finalData);
+                writer.close();
+                const rawTarBuffer = await new Response(ds.readable).arrayBuffer();
+
+                const tarBlob = new Blob([rawTarBuffer], {type: "application/x-tar"});
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(tarBlob);
+                a.download = `${sys.discName}_EXTRACTED.tar`;
+                a.click();
+                log("SUCCESS: FILE RECONSTRUCTED.", "var(--cyan)");
+                updateLabel("READY");
+            } catch(e) {
+                console.error(e);
+                log("CRITICAL FAILURE: INTEGRITY COMPROMISED.", "var(--alert)");
+                updateLabel("ERROR");
+            }
+            sys.busy = false;
+        }
+
+        async function createTarBuffer(files) {
+            let chunks = []; const enc = new TextEncoder();
+            for(let f of files) {
+                let h = new Uint8Array(512);
+                h.set(enc.encode(f.name.substring(0,99)), 0);
+                h.set(enc.encode("0000644\0"), 100);
+                h.set(enc.encode(f.size.toString(8).padStart(11, '0') + "\0"), 124);
+                for(let i=148; i<156; i++) h[i] = 32;
+                h[156] = 48; h.set(enc.encode("ustar\0"), 257); h.set(enc.encode("00"), 263);
+                let sum = 0; for(let i=0; i<512; i++) sum += h[i];
+                h.set(enc.encode(sum.toString(8).padStart(6,'0') + "\0 "), 148);
+                chunks.push(h);
+                chunks.push(new Uint8Array(await f.arrayBuffer()));
+                let pad = (512 - (f.size % 512)) % 512;
+                if(pad > 0) chunks.push(new Uint8Array(pad));
+            }
+            chunks.push(new Uint8Array(1024));
+            let totalLen = chunks.reduce((a,c) => a + c.length, 0);
+            let result = new Uint8Array(totalLen);
+            let offset = 0;
+            for(let c of chunks) { result.set(c, offset); offset += c.length; }
+            return result;
+        }
+    </script>
+</body>
+</html>
